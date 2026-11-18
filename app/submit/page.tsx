@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
@@ -13,7 +13,7 @@ interface AnalysisResult {
   aiMode: 'live' | 'demo';
 }
 
-export default function SubmitPage() {
+function SubmitPageContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -194,5 +194,16 @@ export default function SubmitPage() {
         </div>
       </div>
     </>
+  );
+}
+export default function SubmitPage() {
+  return (
+    <Suspense fallback={
+      <div className="page-content">
+        <p>Loading submission form...</p>
+      </div>
+    }>
+      <SubmitPageContent />
+    </Suspense>
   );
 }
