@@ -2,11 +2,7 @@
  * TAARA — persistent JSON-file storage layer.
  * Runs ONLY on the server (Node.js fs). Client pages must call API routes.
  */
-import fs from 'fs/promises';
-import path from 'path';
-
-const DATA_FILE = path.resolve(process.cwd(), 'data.json');
-
+  import { getSupabase } from './supabase';
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 export type FindingStatus = 'OPEN' | 'ADDRESSED' | 'DISMISSED';
 export type SubmissionStatus = 'DRAFT' | 'PENDING' | 'REVIEW_REQUIRED' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
@@ -150,21 +146,35 @@ const EMPTY: Data = {
 
 let cache: Data | null = null;
 
+
 export async function loadData(): Promise<Data> {
-  if (cache) return cache;
-  try {
-    const raw = await fs.readFile(DATA_FILE, 'utf-8');
-    cache = { ...EMPTY, ...JSON.parse(raw) };
-  } catch {
-    cache = JSON.parse(JSON.stringify(EMPTY));
-    await saveData();
-  }
+  const { data, error } = await getSupabase()
+    .from('taara_store')
+    .select('data')
+    .eq('id', 'main')
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  cache = data
+    ? { ...structuredClone(EMPTY), ...data.data }
+    : structuredClone(EMPTY);
+
   return cache!;
 }
 
 export async function saveData(): Promise<void> {
   if (!cache) return;
-  await fs.writeFile(DATA_FILE, JSON.stringify(cache, null, 2), 'utf-8');
+
+  const { error } = await getSupabase()
+    .from('taara_store')
+    .upsert({
+      id: 'main',
+      data: cache,
+      updated_at: new Date().toISOString()
+    });
+
+  if (error) throw new Error(error.message);
 }
 
 export function invalidateCache(): void {
